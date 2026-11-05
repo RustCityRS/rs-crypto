@@ -42,7 +42,7 @@ impl Xtea {
             return Err(XteaError::InvalidLength);
         }
 
-        for chunk in data.chunks_exact_mut(8) {
+        for chunk in data.as_chunks_mut::<8>().0 {
             let mut v: [u32; 2] = [
                 u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]),
                 u32::from_be_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]),
@@ -64,7 +64,7 @@ impl Xtea {
             return Err(XteaError::InvalidLength);
         }
 
-        for chunk in data.chunks_exact_mut(8) {
+        for chunk in data.as_chunks_mut::<8>().0 {
             let mut v: [u32; 2] = [
                 u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]),
                 u32::from_be_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]),
