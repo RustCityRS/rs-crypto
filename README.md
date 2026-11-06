@@ -176,8 +176,9 @@ let key: RsaKey = parse_rsa_key_from_pem( & pem_string) ?;
 ### Usage in Login Handshake
 
 The server loads the RSA key at startup and uses it to decrypt the client's login block. The login block contains ISAAC
-seeds, username, and password. The `rs-io` crate's `Packet::rsadec()` method performs the actual modular exponentiation
-using the key's `d` and `n` fields.
+seeds, username, and password. `RsaKey::encrypt()` and `RsaKey::decrypt()` perform raw RSA on unsigned big-endian bytes,
+without padding. Decryption uses the Chinese Remainder Theorem. `rs-io` handles packet length prefixes and the Java
+signed-integer representation used by JS5 master-index signatures.
 
 ---
 
@@ -357,7 +358,7 @@ rs-crypto/
   build.rs             # compiles csrc/rand.c via cc crate
   src/
     lib.rs             # pub mod isaac; pub mod rsa;
-    rsa.rs             # RsaKey, PEM/PKCS#8 parsing, key loading
+    rsa.rs             # RsaKey, raw RSA, PEM/PKCS#8 parsing, key loading
     isaac.rs           # Isaac, IsaacPair, FFI bindings, seed derivation
   csrc/
     rand.c             # ISAAC algorithm (Bob Jenkins, public domain)
@@ -370,6 +371,6 @@ rs-crypto/
 | Crate         | Version | Purpose                             |
 |---------------|---------|-------------------------------------|
 | `simple_asn1` | 0.6     | ASN.1/DER parsing for PKCS#8        |
-| `base64`      | 0.22    | PEM Base64 decoding                 |
-| `num-bigint`  | 0.4     | Big integer arithmetic for RSA      |
+| `base64`      | 0.23    | PEM Base64 decoding                 |
+| `num-bigint`  | 0.5     | Big integer arithmetic for RSA      |
 | `cc`          | 1.2     | C compiler integration (build-time) |

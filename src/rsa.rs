@@ -1,8 +1,8 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use num_bigint::{BigInt, Sign};
 use simple_asn1::{ASN1Block, from_der};
-use std::fs;
 use std::path::Path;
+use std::{fs, io};
 
 #[derive(Debug)]
 pub struct RsaKey {
@@ -16,6 +16,28 @@ pub struct RsaKey {
     pub qinv: BigInt, // q^-1 mod p
 }
 
+impl RsaKey {
+    /// Applies raw RSA with the public exponent, without padding, using unsigned big-endian bytes.
+    pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {
+        BigInt::from_bytes_be(Sign::Plus, data)
+            .modpow(&self.e, &self.n)
+            .to_bytes_be()
+            .1
+    }
+
+    /// Applies raw RSA with the private exponent, without padding, using unsigned big-endian bytes.
+    pub fn decrypt(&self, data: &[u8]) -> Vec<u8> {
+        let raw = BigInt::from_bytes_be(Sign::Plus, data);
+        let m1 = raw.modpow(&self.dp, &self.p);
+        let m2 = raw.modpow(&self.dq, &self.q);
+        let mut h = &self.qinv * (&m1 - &m2) % &self.p;
+        if h.sign() == Sign::Minus {
+            h += &self.p;
+        }
+        (m2 + h * &self.q).to_bytes_be().1
+    }
+}
+
 fn pem_to_der(pem: &str) -> Vec<u8> {
     let body: String = pem
         .lines()
@@ -26,7 +48,7 @@ fn pem_to_der(pem: &str) -> Vec<u8> {
     STANDARD.decode(clean).expect("Invalid base64")
 }
 
-pub fn parse_rsa_key_from_pem(pem: &str) -> std::io::Result<RsaKey> {
+pub fn parse_rsa_key_from_pem(pem: &str) -> io::Result<RsaKey> {
     let der = pem_to_der(pem);
     let blocks = from_der(&der).expect("Invalid DER encoding");
 
@@ -70,7 +92,7 @@ pub fn parse_rsa_key_from_pem(pem: &str) -> std::io::Result<RsaKey> {
     })
 }
 
-pub fn load_rsa_key<P: AsRef<Path>>(path: P) -> std::io::Result<RsaKey> {
+pub fn load_rsa_key<P: AsRef<Path>>(path: P) -> io::Result<RsaKey> {
     parse_rsa_key_from_pem(&fs::read_to_string(path)?)
 }
 
@@ -222,6 +244,23 @@ LOGOoj3Ev6V5r1LqrSryKdC6YDpW4nJY
     fn test_parse_1024_bit_key() {
         let key = parse_rsa_key_from_pem(PEM_1024).unwrap();
         assert_key_valid(&key);
+    }
+
+    #[test]
+    fn raw_operations_match_modular_exponentiation() {
+        let key = parse_rsa_key_from_pem(PEM_1024).unwrap();
+        for data in [&[0][..], &[1], &[0x80], &[0, 0x80], &[10; 65]] {
+            let value = BigInt::from_bytes_be(Sign::Plus, data);
+            assert_eq!(
+                key.encrypt(data),
+                value.modpow(&key.e, &key.n).to_bytes_be().1
+            );
+            assert_eq!(
+                key.decrypt(data),
+                value.modpow(&key.d, &key.n).to_bytes_be().1
+            );
+            assert_eq!(key.decrypt(&key.encrypt(data)), value.to_bytes_be().1);
+        }
     }
 
     #[test]
