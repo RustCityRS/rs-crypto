@@ -1,6 +1,6 @@
 [package]
 name = "rs-crypto"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 authors = ["RustCityRS"]
 description = "Cryptographic Primitives: ISAAC, RSA, XTEA, Huffman, Whirlpool"
@@ -15,7 +15,7 @@ cc = "1.2"
 
 [dependencies]
 simple_asn1 = "0.6"
-base64 = "0.22"
-num-bigint = "0.4"
+base64 = "0.23"
+num-bigint = "0.5"
 
 [dev-dependencies]
