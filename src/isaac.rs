@@ -62,7 +62,7 @@ impl Isaac {
         Self { ctx }
     }
 
-    pub fn next_int(&mut self) -> u32 {
+    pub fn take_next_value(&mut self) -> u32 {
         if self.ctx.randcnt == 0 {
             unsafe {
                 isaac(&mut self.ctx);
@@ -73,15 +73,25 @@ impl Isaac {
         self.ctx.randrsl[self.ctx.randcnt as usize]
     }
 
+    pub fn poll_next_value(&mut self) -> u32 {
+        if self.ctx.randcnt == 0 {
+            unsafe {
+                isaac(&mut self.ctx);
+            }
+            self.ctx.randcnt = RANDSIZ as u32;
+        }
+        self.ctx.randrsl[self.ctx.randcnt as usize - 1]
+    }
+
     pub fn next_int_max(&mut self, max: u32) -> u32 {
         if max == 0 {
             return 0;
         }
-        self.next_int() % max
+        self.take_next_value() % max
     }
 
     pub fn next_int_range(&mut self, min: i32, max: i32) -> i32 {
-        min + (self.next_int() % (max - min) as u32) as i32
+        min + (self.take_next_value() % (max - min) as u32) as i32
     }
 }
 
@@ -151,7 +161,7 @@ mod tests {
         let mut isaac2 = Isaac::new(&seed);
 
         for _ in 0..1000 {
-            assert_eq!(isaac1.next_int(), isaac2.next_int());
+            assert_eq!(isaac1.take_next_value(), isaac2.take_next_value());
         }
     }
 
@@ -160,9 +170,9 @@ mod tests {
         let seed = [0x12345678, 0x9ABCDEF0, 0xFEDCBA98, 0x76543210];
         let mut isaac = Isaac::new(&seed);
 
-        let v1 = isaac.next_int();
-        let v2 = isaac.next_int();
-        let v3 = isaac.next_int();
+        let v1 = isaac.take_next_value();
+        let v2 = isaac.take_next_value();
+        let v3 = isaac.take_next_value();
 
         assert_ne!(v1, v2);
         assert_ne!(v2, v3);
@@ -180,16 +190,26 @@ mod tests {
         let mut a = Isaac::new(&[1, 2, 3, 4]);
         let mut b = Isaac::new(&[5, 6, 7, 8]);
 
-        let seq_a: Vec<u32> = (0..10).map(|_| a.next_int()).collect();
-        let seq_b: Vec<u32> = (0..10).map(|_| b.next_int()).collect();
+        let seq_a: Vec<u32> = (0..10).map(|_| a.take_next_value()).collect();
+        let seq_b: Vec<u32> = (0..10).map(|_| b.take_next_value()).collect();
         assert_ne!(seq_a, seq_b);
+    }
+
+    #[test]
+    fn poll_next_value_peeks_the_next_take() {
+        let mut isaac = Isaac::new(&[1, 2, 3, 4]);
+        for _ in 0..600 {
+            let peeked = isaac.poll_next_value();
+            assert_eq!(isaac.poll_next_value(), peeked);
+            assert_eq!(isaac.take_next_value(), peeked);
+        }
     }
 
     #[test]
     fn test_zero_seed() {
         let mut isaac = Isaac::new(&[0, 0, 0, 0]);
-        let v1 = isaac.next_int();
-        let v2 = isaac.next_int();
+        let v1 = isaac.take_next_value();
+        let v2 = isaac.take_next_value();
         assert_ne!(v1, v2);
     }
 
@@ -220,15 +240,15 @@ mod tests {
     fn test_clone_produces_independent_state() {
         let mut original = Isaac::new(&[1, 2, 3, 4]);
         for _ in 0..10 {
-            original.next_int();
+            original.take_next_value();
         }
 
         let mut cloned = original.clone();
-        assert_eq!(original.next_int(), cloned.next_int());
+        assert_eq!(original.take_next_value(), cloned.take_next_value());
 
-        original.next_int();
-        let v_orig = original.next_int();
-        let v_clone = cloned.next_int();
+        original.take_next_value();
+        let v_orig = original.take_next_value();
+        let v_clone = cloned.take_next_value();
         assert_ne!(v_orig, v_clone);
     }
 
@@ -237,7 +257,7 @@ mod tests {
         let mut isaac = Isaac::new(&[1, 2, 3, 4]);
         let mut values = std::collections::HashSet::new();
         for _ in 0..1000 {
-            values.insert(isaac.next_int());
+            values.insert(isaac.take_next_value());
         }
         assert!(values.len() > 900);
     }
@@ -250,8 +270,14 @@ mod tests {
         let mut decode_check = Isaac::new(&[100, 200, 300, 400]);
         let mut encode_check = Isaac::new(&[150, 250, 350, 450]);
 
-        assert_eq!(pair.decode.clone().next_int(), decode_check.next_int());
-        assert_eq!(pair.encode.clone().next_int(), encode_check.next_int());
+        assert_eq!(
+            pair.decode.clone().take_next_value(),
+            decode_check.take_next_value()
+        );
+        assert_eq!(
+            pair.encode.clone().take_next_value(),
+            encode_check.take_next_value()
+        );
     }
 
     #[test]
@@ -279,8 +305,8 @@ mod tests {
         let mut decode = pair.decode;
         let mut encode = pair.encode;
 
-        let decode_vals: Vec<u32> = (0..10).map(|_| decode.next_int()).collect();
-        let encode_vals: Vec<u32> = (0..10).map(|_| encode.next_int()).collect();
+        let decode_vals: Vec<u32> = (0..10).map(|_| decode.take_next_value()).collect();
+        let encode_vals: Vec<u32> = (0..10).map(|_| encode.take_next_value()).collect();
         assert_ne!(decode_vals, encode_vals);
     }
 }

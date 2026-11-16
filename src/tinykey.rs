@@ -7,26 +7,26 @@ unsafe extern "C" {
     fn decipher(num_rounds: u32, v: *mut u32, key: *const u32);
 }
 
-pub struct Xtea;
+pub struct TinyKey;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum XteaError {
+pub enum TinyKeyError {
     InvalidLength,
 }
 
-impl std::fmt::Display for XteaError {
+impl std::fmt::Display for TinyKeyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            XteaError::InvalidLength => write!(f, "Data length must be a multiple of 8"),
+            TinyKeyError::InvalidLength => write!(f, "Data length must be a multiple of 8"),
         }
     }
 }
 
-impl std::error::Error for XteaError {}
+impl std::error::Error for TinyKeyError {}
 
-pub type Result<T> = std::result::Result<T, XteaError>;
+pub type Result<T> = std::result::Result<T, TinyKeyError>;
 
-impl Xtea {
+impl TinyKey {
     pub const ROUNDS: u32 = 32;
 
     pub fn encrypt(data: &mut [u8], key: &[u32; 4]) -> Result<()> {
@@ -39,7 +39,7 @@ impl Xtea {
 
     pub fn encrypt_with_rounds(data: &mut [u8], key: &[u32; 4], rounds: u32) -> Result<()> {
         if !data.len().is_multiple_of(8) {
-            return Err(XteaError::InvalidLength);
+            return Err(TinyKeyError::InvalidLength);
         }
 
         for chunk in data.as_chunks_mut::<8>().0 {
@@ -61,7 +61,7 @@ impl Xtea {
 
     pub fn decrypt_with_rounds(data: &mut [u8], key: &[u32; 4], rounds: u32) -> Result<()> {
         if !data.len().is_multiple_of(8) {
-            return Err(XteaError::InvalidLength);
+            return Err(TinyKeyError::InvalidLength);
         }
 
         for chunk in data.as_chunks_mut::<8>().0 {
@@ -92,10 +92,10 @@ mod tests {
         let original = b"ABCDEFGH";
         let mut data = original.to_vec();
 
-        Xtea::encrypt(&mut data, &key).unwrap();
+        TinyKey::encrypt(&mut data, &key).unwrap();
         assert_ne!(&data, original);
 
-        Xtea::decrypt(&mut data, &key).unwrap();
+        TinyKey::decrypt(&mut data, &key).unwrap();
         assert_eq!(&data, original);
     }
 
@@ -104,8 +104,8 @@ mod tests {
         let key: [u32; 4] = [0x01234567, 0x89ABCDEF, 0xFEDCBA98, 0x76543210];
         let mut data = vec![1u8, 2, 3, 4, 5];
         assert_eq!(
-            Xtea::decrypt(&mut data, &key),
-            Err(XteaError::InvalidLength)
+            TinyKey::decrypt(&mut data, &key),
+            Err(TinyKeyError::InvalidLength)
         );
     }
 
@@ -115,8 +115,8 @@ mod tests {
         let original = b"ABCDEFGHJKLMNOPQ";
         let mut data = original.to_vec();
 
-        Xtea::encrypt(&mut data, &key).unwrap();
-        Xtea::decrypt(&mut data, &key).unwrap();
+        TinyKey::encrypt(&mut data, &key).unwrap();
+        TinyKey::decrypt(&mut data, &key).unwrap();
         assert_eq!(&data, original);
     }
 
@@ -125,8 +125,8 @@ mod tests {
         let key: [u32; 4] = [0, 0, 0, 0];
         let mut data = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 
-        Xtea::encrypt(&mut data, &key).unwrap();
-        Xtea::decrypt(&mut data, &key).unwrap();
+        TinyKey::encrypt(&mut data, &key).unwrap();
+        TinyKey::decrypt(&mut data, &key).unwrap();
         assert_eq!(data, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
     }
 
@@ -136,8 +136,8 @@ mod tests {
         let original = b"TESTDATA";
         let mut data = original.to_vec();
 
-        Xtea::encrypt(&mut data, &key).unwrap();
-        Xtea::decrypt_with_rounds(&mut data, &key, 32).unwrap();
+        TinyKey::encrypt(&mut data, &key).unwrap();
+        TinyKey::decrypt_with_rounds(&mut data, &key, 32).unwrap();
         assert_eq!(&data, original);
     }
 }

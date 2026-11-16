@@ -82,6 +82,15 @@ impl Huffman {
         }
     }
 
+    /// Number of bytes `encode` writes for `src`.
+    pub fn calculate_encoded_length(&self, src: &[u8]) -> usize {
+        let bits: usize = src
+            .iter()
+            .map(|&sym| self.bits[sym as usize] as usize)
+            .sum();
+        (bits + 7) >> 3
+    }
+
     /// Encode `src` into Huffman-compressed bytes in `dest`.
     /// Returns the number of bytes written.
     pub fn encode(&self, src: &[u8], dest: &mut [u8]) -> usize {
@@ -230,6 +239,18 @@ mod tests {
         let mut decoded = vec![0u8; src.len()];
         h.decode(&compressed, 0, &mut decoded, src.len());
         assert_eq!(&decoded, src);
+    }
+
+    #[test]
+    fn calculate_encoded_length_matches_encode() {
+        let h = Huffman::new(&test_table());
+        for src in [&b""[..], b"a", b"abcd", b"dddddddd", b"abcabcabcd"] {
+            let mut compressed = vec![0u8; 64];
+            assert_eq!(
+                h.calculate_encoded_length(src),
+                h.encode(src, &mut compressed)
+            );
+        }
     }
 
     #[test]
